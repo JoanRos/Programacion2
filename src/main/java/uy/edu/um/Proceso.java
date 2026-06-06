@@ -21,6 +21,6 @@ public class Proceso {
     private String estado; // por letra son NEW,PENDING,RUNNING FINISHED
     private MyLinkedListImpl<Evento> eventosAsociados;
 
-
+//juandiego
 
 }
