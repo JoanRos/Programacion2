@@ -13,14 +13,17 @@ import java.awt.*;
 @AllArgsConstructor
 @Setter
 @Getter
-public class Proceso {
+public class Proceso implements Comparable<Proceso> {
     private Integer pid;
     private String nombre;
-    private Usuario usuarioPriopietario;
+    private Usuario usuarioPropietario;
     private Integer prioridad;
     private String estado; // por letra son NEW,PENDING,RUNNING FINISHED
     private MyLinkedListImpl<Evento> eventosAsociados;
-
+    @Override
+    public int compareTo(Proceso otro) {
+        return this.prioridad.compareTo(otro.prioridad);
+    }
 //juandiego
 
 }
