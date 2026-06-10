@@ -7,6 +7,7 @@ import uy.edu.um.tad.hash.MyHashImpl;
 import uy.edu.um.tad.heap.MyHeapImpl;
 import uy.edu.um.tad.list.MyLinkedListImpl;
 import uy.edu.um.tad.list.MyList;
+import uy.edu.um.tad.queue.EmptyQueueException;
 import uy.edu.um.tad.queue.MyQueue;
 import uy.edu.um.tad.queue.MyQueueImpl;
 import uy.edu.um.tad.stack.MyStackImpl;
@@ -23,13 +24,17 @@ public class ProcessManagerImpl implements ProcessManager{
     private int cantidadMaxProcesos; // por letra debemos definirla y controlar elk stack con esto
     private MyHashImpl<Integer,Usuario> usuarios;
     private MyFileManager fm = new MyFileManager();
+    private String logFileName;
 
     public ProcessManagerImpl() {
         this.procesosNuevos = new MyQueueImpl<>();
         this.procesosPendientes = new MyHeapImpl<>(false);
         this.procesosFinalizados = new MyStackImpl<>();
         this.usuarios = new MyHashImpl<>();
+        String fecha = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        this.logFileName = "DOORS_PROCESS_LOG_" + fecha;
     }
+
     @Override
     public void loadProcessAndUserData(String processCsvPath, String usersCsvPath) {
       //  System.out.println("IMPLEMENTAR load process and user data");
@@ -90,8 +95,23 @@ public class ProcessManagerImpl implements ProcessManager{
 
     @Override
     public void prepareProcesses() {
-
-        System.out.println("IMPLEMENTAR");
+        while (!procesosNuevos.isEmpty()) {
+            Proceso p = null;
+            try {
+                p = procesosNuevos.dequeue();
+            } catch (EmptyQueueException e) {
+                throw new RuntimeException(e);
+            }
+            int prioridad = calcularPrioridad(p);
+            p.setPrioridad(prioridad);
+            p.setEstado("PENDING");
+            procesosPendientes.insert(p);
+            escribirLog("NEW PENDING PROCESS: PID=" + p.getPid()
+                    + " | " + p.getNombre()
+                    + " | USER:" + p.getUsuarioPropietario().getAlias()
+                    + " UID:" + p.getUsuarioPropietario().getUid()
+                    + " | P=" + prioridad);
+        }
 
     }
 
@@ -134,4 +154,43 @@ public class ProcessManagerImpl implements ProcessManager{
     public void printStatusByProcess(int pid) {
         System.out.println("IMPLEMENTAR");
     }
+
+    /// funciones auxiliares creadas mayor claridad en funciones solicitadas
+    //creamos funciones para secciones de codigo qe se repetian, ejemplo, escribir en el archivo log
+    //funcion para escribir log de eventos en el sistema nos basamos en el archivo MyFileManager que brindo el profesor en el practico "practicoHashmap".
+    private void escribirLog(String mensaje) {
+        String timestamp = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        String linea = "[" + timestamp + "]: " + mensaje;
+        System.out.println(linea);
+        MyList<String> lineas = fm.readFile(logFileName);
+        lineas.add(linea);
+        fm.writeFile(lineas, logFileName);
+    }
+
+    //esta funcion devuelve la prioridad para cada proceso que se va a guardar en ProcesosPendientes
+    //en funcion de la letra.
+    private int calcularPrioridad(Proceso p) {
+        int nCPU = 0, nRAM = 0, nDISK = 0;
+        MyLinkedListImpl<Evento> eventos = p.getEventosAsociados();
+        for (int i = 0; i < eventos.size(); i++) {
+            String tipo = eventos.get(i).getTipo();
+            if (tipo.equals("CPU")) {
+                nCPU++;
+            } else if (tipo.equals("RAM")) {
+                nRAM++;
+            } else if (tipo.equals("DISK")) {
+                nDISK++;
+            }
+        }
+        int nEvents = eventos.size();
+        int w;
+        if (p.getUsuarioPropietario().getTipo().equals("ADMIN")) {
+            w = 32;
+        } else {
+            w = 16;
+        }
+        return ((8 * nCPU + 2 * nRAM + 2 * nDISK) / nEvents) + w * nEvents;
+    }
+
 }
