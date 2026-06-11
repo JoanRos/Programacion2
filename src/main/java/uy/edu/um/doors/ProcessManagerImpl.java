@@ -25,6 +25,7 @@ public class ProcessManagerImpl implements ProcessManager{
     private MyHashImpl<Integer,Usuario> usuarios;
     private MyFileManager fm = new MyFileManager();
     private String logFileName;
+    private Proceso procesoEnEjecucion;
 
     public ProcessManagerImpl() {
         this.procesosNuevos = new MyQueueImpl<>();
@@ -33,6 +34,7 @@ public class ProcessManagerImpl implements ProcessManager{
         this.usuarios = new MyHashImpl<>();
         String fecha = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         this.logFileName = "DOORS_PROCESS_LOG_" + fecha;
+        this.procesoEnEjecucion = null;
     }
 
     @Override
@@ -117,11 +119,49 @@ public class ProcessManagerImpl implements ProcessManager{
 
     @Override
     public void executeNextProcess() {
-        System.out.println("IMPLEMENTAR");
+        // validar que no haya proceso en ejecucion
+        if (procesoEnEjecucion != null) {
+            System.out.println("Ya hay un proceso en ejecucion: PID=" + procesoEnEjecucion.getPid());
+            return;
+        }
+
+        // validar que haya procesos pendientes
+        if (procesosPendientes.isEmpty()) {
+            System.out.println("No hay procesos pendientes para ejecutar");
+            return;
+        }
+
+        // extraer el de mayor prioridad del heap
+        procesoEnEjecucion = procesosPendientes.remove();
+        procesoEnEjecucion.setEstado("RUNNING");
+
+        // construir el mensaje del log
+        StringBuilder sb = new StringBuilder();
+        sb.append("EXECUTING PROCESS: PID=" + procesoEnEjecucion.getPid()
+                + " | USER:" + procesoEnEjecucion.getUsuarioPropietario().getAlias()
+                + " UID:" + procesoEnEjecucion.getUsuarioPropietario().getUid());
+
+        // iterar sobre los eventos y agregarlos al mensaje
+        MyLinkedListImpl<Evento> eventos = procesoEnEjecucion.getEventosAsociados();
+        for (int i = 0; i < eventos.size(); i++) {
+            Evento evento = eventos.get(i);
+            sb.append("\n EVENT: " + evento.getTipo() + " | Instructions [");
+            MyLinkedListImpl<String> instrucciones = evento.getInstrucciones();
+            for (int j = 0; j < instrucciones.size(); j++) {
+                sb.append(instrucciones.get(j));
+                if (j < instrucciones.size() - 1) {
+                    sb.append(", ");
+                }
+            }
+            sb.append("]");
+        }
+
+        escribirLog(sb.toString());
     }
 
     @Override
     public void finishProcessOk() {
+
         System.out.println("IMPLEMENTAR");
     }
 
@@ -164,7 +204,11 @@ public class ProcessManagerImpl implements ProcessManager{
         String linea = "[" + timestamp + "]: " + mensaje;
         System.out.println(linea);
         MyList<String> lineas = fm.readFile(logFileName);
-        lineas.add(linea);
+        // separar por salto de linea y agregar cada parte
+        String[] partes = linea.split("\n");
+        for (int i = 0; i < partes.length; i++) {
+            lineas.add(partes[i]);
+        }
         fm.writeFile(lineas, logFileName);
     }
 

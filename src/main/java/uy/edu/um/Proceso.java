@@ -24,6 +24,6 @@ public class Proceso implements Comparable<Proceso> {
     public int compareTo(Proceso otro) {
         return this.prioridad.compareTo(otro.prioridad);
     }
-//juandiego
+
 
 }

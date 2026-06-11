@@ -15,5 +15,7 @@ import java.util.LinkedList;
 @Getter
 public class Evento {
 
-    private String tipo; /// segun letta CPU, RAM DISK
+    private String tipo;
+    /// segun letta CPU, RAM DISK
     private MyLinkedListImpl<String> instrucciones;
+}
