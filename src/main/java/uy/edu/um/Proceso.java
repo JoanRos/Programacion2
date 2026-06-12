@@ -24,6 +24,7 @@ public class Proceso implements Comparable<Proceso> {
     public int compareTo(Proceso otro) {
         return this.prioridad.compareTo(otro.prioridad);
     }
-
+    private String tipoFinalizacion; // OK, ERROR, TERMINATED
+    private Usuario terminadoPor; // solo se usa si es TERMINATED
 
 }
