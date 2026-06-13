@@ -263,17 +263,274 @@ public class ProcessManagerImpl implements ProcessManager{
 
     @Override
     public void printStatus() {
-        System.out.println("IMPLEMENTAR");
+        ///  para esta implementacion nos basamos 100% en imprimit en el orden de letra
+        ///  basicamente queremos recorrretr los procesos en ejecuccion, pendientes y funalizados e imprimirlos en ese orden
+        ///  para cada seccion recorremos el tad correspondiente. Importante el de en ejecuccion es uno solo, es un objeto ya que se ejecuta de uno a la vez
+
+
+        System.out.println("PROCESS STATUS");
+
+        // ---- EXECUTING ----
+        // procesoEnEjecucion es una variable directa, acceso simple O(1)
+        System.out.println("EXECUTING:");
+        if (procesoEnEjecucion != null) {
+            System.out.println("\tPID=" + procesoEnEjecucion.getPid()
+                    + " | " + procesoEnEjecucion.getNombre()
+                    + " | USER:" + procesoEnEjecucion.getUsuarioPropietario().getAlias()
+                    + " UID:" + procesoEnEjecucion.getUsuarioPropietario().getUid()
+                    + " | P=" + procesoEnEjecucion.getPrioridad());
+        } else {
+            System.out.println("\t(ninguno)");
+        }
+
+        // ---- PENDING ----
+        // No podemos iterar el heap directamente sin modificar el TAD.
+        // Solucion: vaciamos con remove() (que devuelve siempre el de mayor prioridad),
+        // imprimimos, guardamos en stack auxiliar, y luego restauramos el heap.
+        // Ventaja: los pendientes quedan ordenados de mayor a menor prioridad,
+        // igual que el ejemplo de la letra.
+        System.out.println("PENDING:");
+        if (procesosPendientes.isEmpty()) {
+            System.out.println("\t(ninguno)");
+        } else {
+            // Stack auxiliar para guardar los procesos mientras vaciamos el heap
+            MyStackImpl<Proceso> auxiliarHeap = new MyStackImpl<>();
+
+            // Paso 1: vaciamos el heap imprimiendo y guardando en auxiliar
+            while (!procesosPendientes.isEmpty()) {
+                Proceso p = procesosPendientes.remove(); // saca siempre el de mayor prioridad
+                System.out.println("\tPID=" + p.getPid()
+                        + " | " + p.getNombre()
+                        + " | USER:" + p.getUsuarioPropietario().getAlias()
+                        + " UID:" + p.getUsuarioPropietario().getUid()
+                        + " | P=" + p.getPrioridad());
+                auxiliarHeap.push(p);
+            }
+
+            // Paso 2: restauramos el heap insertando desde el auxiliar
+            // insert() se encarga de reordenar el heap correctamente
+            // no importa el orden en que insertamos
+            while (!auxiliarHeap.isEmpty()) {
+                try {
+                    procesosPendientes.insert(auxiliarHeap.pop());
+                } catch (Exception e) {
+                    break;
+                }
+            }
+        }
+
+        // ---- FINISHED ----
+        // La letra pide orden inverso al de finalizacion = el mas reciente primero.
+        // El stack tiene el mas reciente en el tope, entonces pop() nos da ese orden.
+        // Problema: pop() destruye el stack, necesitamos restaurarlo.
+        // Solucion: misma logica que el heap pero con stack auxiliar.
+        //   - Pop del original e imprimimos -> push al auxiliar (invierte orden)
+        //   - Pop del auxiliar -> push al original (restaura orden original)
+        System.out.println("FINISHED:");
+        if (procesosFinalizados.isEmpty()) {
+            System.out.println("\t(ninguno)");
+        } else {
+            MyStackImpl<Proceso> auxiliarStack = new MyStackImpl<>();
+
+            // Paso 1: vaciamos el stack original imprimiendo e invirtiendo en auxiliar
+            while (!procesosFinalizados.isEmpty()) {
+                try {
+                    Proceso p = procesosFinalizados.pop(); // saca el mas reciente
+                    System.out.println("\tPID=" + p.getPid()
+                            + " " + p.getNombre()
+                            + " | STATE: " + p.getEstado()
+                            + " | USER:" + p.getUsuarioPropietario().getAlias()
+                            + " UID:" + p.getUsuarioPropietario().getUid());
+                    auxiliarStack.push(p);
+                } catch (Exception e) {
+                    break;
+                }
+            }
+
+            // Paso 2: restauramos el stack original desde el auxiliar
+            // el auxiliar tiene el mas antiguo en el tope, al hacer pop+push
+            // el original queda exactamente igual que antes
+            while (!auxiliarStack.isEmpty()) {
+                try {
+                    procesosFinalizados.push(auxiliarStack.pop());
+                } catch (Exception e) {
+                    break;
+                }
+            }
+        }
     }
 
     @Override
     public void printStatusVerbose() {
-        System.out.println("IMPLEMENTAR");
+        ///  aca reutilizamos gran parte del codigo de arriba
+        /// solo que agregamos un llamado a una funcion para que al imprimir cada proceso imprima susu eventos asociados
+        ///  IMPORTANTE, como imprimimos eventos de procesos pendientes, en ejecuccion y finalizados, es mejor hacer una funcion aparte
+        /// que imprima los eventos de un proceso, asi queda mas prolijo el codigo ee y la llamamos, pudiendo reutilizar el codigo de arriba
+      // creamos la de  ---> printEventosDelProceso esta abjo
+
+        System.out.println("PROCESS STATUS (VERBOSE)");
+
+        // ---- EXECUTING ----
+        System.out.println("EXECUTING:");
+        if (procesoEnEjecucion != null) {
+            System.out.println("\tPID=" + procesoEnEjecucion.getPid()
+                    + " | " + procesoEnEjecucion.getNombre()
+                    + " | USER:" + procesoEnEjecucion.getUsuarioPropietario().getAlias()
+                    + " UID:" + procesoEnEjecucion.getUsuarioPropietario().getUid()
+                    + " | P=" + procesoEnEjecucion.getPrioridad());
+            // Unica diferencia con printStatus: mostramos eventos
+            printEventosDelProceso(procesoEnEjecucion);
+        } else {
+            System.out.println("\t(ninguno)");
+        }
+
+        // ---- PENDING ----
+        // Misma logica de vaciado y restauracion del heap que en printStatus()
+        System.out.println("PENDING:");
+        if (procesosPendientes.isEmpty()) {
+            System.out.println("\t(ninguno)");
+        } else {
+            MyStackImpl<Proceso> auxiliarHeap = new MyStackImpl<>();
+
+            // Paso 1: vaciamos el heap imprimiendo con eventos y guardando en auxiliar
+            while (!procesosPendientes.isEmpty()) {
+                Proceso p = procesosPendientes.remove();
+                System.out.println("\tPID=" + p.getPid()
+                        + " | " + p.getNombre()
+                        + " | USER:" + p.getUsuarioPropietario().getAlias()
+                        + " UID:" + p.getUsuarioPropietario().getUid()
+                        + " | P=" + p.getPrioridad());
+                // Unica diferencia con printStatus: mostramos eventos
+                printEventosDelProceso(p);
+                auxiliarHeap.push(p);
+            }
+
+            // Paso 2: restauramos el heap
+            while (!auxiliarHeap.isEmpty()) {
+                try {
+                    procesosPendientes.insert(auxiliarHeap.pop());
+                } catch (Exception e) {
+                    break;
+                }
+            }
+        }
+
+        // ---- FINISHED ----
+        // Misma logica de pila auxiliar que en printStatus()
+        System.out.println("FINISHED:");
+        if (procesosFinalizados.isEmpty()) {
+            System.out.println("\t(ninguno)");
+        } else {
+            MyStackImpl<Proceso> auxiliarStack = new MyStackImpl<>();
+
+            // Paso 1: vaciamos imprimiendo con eventos e invertimos en auxiliar
+            while (!procesosFinalizados.isEmpty()) {
+                try {
+                    Proceso p = procesosFinalizados.pop();
+                    System.out.println("\tPID=" + p.getPid()
+                            + " " + p.getNombre()
+                            + " | STATE: " + p.getEstado()
+                            + " | USER:" + p.getUsuarioPropietario().getAlias()
+                            + " UID:" + p.getUsuarioPropietario().getUid());
+                    // Unica diferencia con printStatus: mostramos eventos
+                    printEventosDelProceso(p);
+                    auxiliarStack.push(p);
+                } catch (Exception e) {
+                    break;
+                }
+            }
+
+            // Paso 2: restauramos el stack original
+            while (!auxiliarStack.isEmpty()) {
+                try {
+                    procesosFinalizados.push(auxiliarStack.pop());
+                } catch (Exception e) {
+                    break;
+                }
+            }
+        }
     }
 
     @Override
     public void printStatusByUser(int uid) {
-        System.out.println("IMPLEMENTAR");
+
+        ///  aca la idea es un poco similar solo con un cuidadoo
+        ///  promero validamos si existe el user, de no existir avisamos con print en p[antalla
+        ///  de existir usamos codsifgo de arriba como base, pero con el condicional al momento de imprimir que el usuario del proceso sea el que nos pasaron por parametro al llamar
+
+        // Buscamos el usuario en el hash por su UID, operacion O(1)
+        Usuario usuario = usuarios.get(uid);
+        if (usuario == null) {
+            System.out.println("No existe usuario con UID=" + uid);
+            return;
+        }
+        System.out.println("PROCESOS DEL USUARIO: " + usuario.getAlias() + " UID:" + uid);
+
+        // ---- EXECUTING ----
+        // Verificamos si el proceso en ejecucion pertenece a este usuario
+        if (procesoEnEjecucion != null
+                && procesoEnEjecucion.getUsuarioPropietario().getUid().equals(uid)) {
+            System.out.println("[RUNNING] PID=" + procesoEnEjecucion.getPid()
+                    + " | " + procesoEnEjecucion.getNombre()
+                    + " | P=" + procesoEnEjecucion.getPrioridad());
+        }
+
+        // ---- PENDING ----
+        // Misma logica de vaciado y restauracion del heap.
+        // Solo imprimimos los que coinciden con el UID pero guardamos TODOS
+        // en el auxiliar para poder restaurar el heap completo al final
+        MyStackImpl<Proceso> auxiliarHeap = new MyStackImpl<>();
+
+        while (!procesosPendientes.isEmpty()) {
+            Proceso p = procesosPendientes.remove();
+            // Solo imprimimos si es del usuario buscado, pero guardamos siempre
+            if (p.getUsuarioPropietario().getUid().equals(uid)) {
+                System.out.println("[PENDING] PID=" + p.getPid()
+                        + " | " + p.getNombre()
+                        + " | P=" + p.getPrioridad());
+            }
+            auxiliarHeap.push(p);
+        }
+
+        // Restauramos el heap completo
+        while (!auxiliarHeap.isEmpty()) {
+            try {
+                procesosPendientes.insert(auxiliarHeap.pop());
+            } catch (Exception e) {
+                break;
+            }
+        }
+
+        // ---- FINISHED ----
+        // Misma logica de pila auxiliar.
+        // Solo imprimimos los que coinciden con el UID pero guardamos TODOS
+        MyStackImpl<Proceso> auxiliarStack = new MyStackImpl<>();
+
+        while (!procesosFinalizados.isEmpty()) {
+            try {
+                Proceso p = procesosFinalizados.pop();
+                // Solo imprimimos si es del usuario buscado, pero guardamos siempre
+                if (p.getUsuarioPropietario().getUid().equals(uid)) {
+                    System.out.println("[FINISHED] PID=" + p.getPid()
+                            + " | " + p.getNombre()
+                            + " | STATE: " + p.getEstado());
+                }
+                auxiliarStack.push(p);
+            } catch (Exception e) {
+                break;
+            }
+        }
+
+        // Restauramos el stack completo
+        while (!auxiliarStack.isEmpty()) {
+            try {
+                procesosFinalizados.push(auxiliarStack.pop());
+            } catch (Exception e) {
+                break;
+            }
+        }
+
+
     }
 
     @Override
@@ -323,4 +580,22 @@ public class ProcessManagerImpl implements ProcessManager{
         return ((8 * nCPU + 2 * nRAM + 2 * nDISK) / nEvents) + w * nEvents;
     }
 
+
+    // Recorre e imprime todos los eventos de un proceso con sus instrucciones
+   // Se reutiliza en printStatusVerbose y en printProcesoDetalle
+    private void printEventosDelProceso(Proceso p) {
+        MyLinkedListImpl<Evento> eventos = p.getEventosAsociados();
+        for (int i = 0; i < eventos.size(); i++) {
+            Evento ev = eventos.get(i);
+            StringBuilder sb = new StringBuilder();
+            sb.append("\t  EVENT: ").append(ev.getTipo()).append(" | Instructions [");
+            MyLinkedListImpl<String> instrucciones = ev.getInstrucciones();
+            for (int j = 0; j < instrucciones.size(); j++) {
+                sb.append(instrucciones.get(j));
+                if (j < instrucciones.size() - 1) sb.append(", ");
+            }
+            sb.append("]");
+            System.out.println(sb.toString());
+        }
+    }
 }
