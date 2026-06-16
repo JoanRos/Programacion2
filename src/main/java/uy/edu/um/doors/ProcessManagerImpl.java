@@ -535,7 +535,78 @@ public class ProcessManagerImpl implements ProcessManager{
 
     @Override
     public void printStatusByProcess(int pid) {
-        System.out.println("IMPLEMENTAR");
+
+        // Buscamos el proceso por PID en los 3 lugares posibles en memoria:
+        // EXECUTING (variable directa), PENDING (heap) y FINISHED (stack)
+        // En cada caso usamos la misma logica de vaciado/restauracion con auxiliar
+        // Guardamos el proceso encontrado en "encontrado" y recien al final imprimimos,
+        // para no mezclar el output con la restauracion de las estructuras
+
+        // ---- EXECUTING ----
+        // Acceso directo O(1), si lo encontramos imprimimos y salimos
+        if (procesoEnEjecucion != null && procesoEnEjecucion.getPid().equals(pid)) {
+            printProcesoDetalle(procesoEnEjecucion);
+            return;
+        }
+
+        // ---- PENDING ----
+        // Vaciamos el heap con remove() revisando cada proceso, restauramos con insert()
+        // Guardamos todos en auxiliar aunque encontremos el que buscamos,
+        // porque necesitamos restaurar el heap completo
+        MyStackImpl<Proceso> auxiliarHeap = new MyStackImpl<>();
+        Proceso encontrado = null;
+
+        while (!procesosPendientes.isEmpty()) {
+            Proceso p = procesosPendientes.remove();
+            if (p.getPid().equals(pid)) {
+                encontrado = p; // lo guardamos pero NO imprimimos todavia
+            }
+            auxiliarHeap.push(p); // guardamos siempre para restaurar
+        }
+        // Restauramos el heap antes de imprimir cualquier cosa
+        while (!auxiliarHeap.isEmpty()) {
+            try {
+                procesosPendientes.insert(auxiliarHeap.pop());
+            } catch (Exception e) {
+                break;
+            }
+        }
+        // Si lo encontramos en pendientes, imprimimos y salimos
+        if (encontrado != null) {
+            printProcesoDetalle(encontrado);
+            return;
+        }
+
+        // ---- FINISHED ----
+        // Misma logica con stack auxiliar
+        MyStackImpl<Proceso> auxiliarStack = new MyStackImpl<>();
+
+        while (!procesosFinalizados.isEmpty()) {
+            try {
+                Proceso p = procesosFinalizados.pop();
+                if (p.getPid().equals(pid)) {
+                    encontrado = p; // guardamos pero NO imprimimos todavia
+                }
+                auxiliarStack.push(p); // guardamos siempre para restaurar
+            } catch (Exception e) {
+                break;
+            }
+        }
+        // Restauramos el stack antes de imprimir
+        while (!auxiliarStack.isEmpty()) {
+            try {
+                procesosFinalizados.push(auxiliarStack.pop());
+            } catch (Exception e) {
+                break;
+            }
+        }
+
+        // Recien aca imprimimos el resultado final
+        if (encontrado != null) {
+            printProcesoDetalle(encontrado);
+        } else {
+            System.out.println("No existe proceso con PID=" + pid + " en memoria");
+        }
     }
 
     /// funciones auxiliares creadas mayor claridad en funciones solicitadas
@@ -597,5 +668,18 @@ public class ProcessManagerImpl implements ProcessManager{
             sb.append("]");
             System.out.println(sb.toString());
         }
+    }
+
+
+    // Muestra cabecera del proceso mas todos sus eventos
+// Se reutiliza en printStatusByProcess
+    private void printProcesoDetalle(Proceso p) {
+        System.out.println("\tPID=" + p.getPid()
+                + " | " + p.getNombre()
+                + " | USER:" + p.getUsuarioPropietario().getAlias()
+                + " UID:" + p.getUsuarioPropietario().getUid()
+                + " | STATE:" + p.getEstado()
+                + " | P=" + p.getPrioridad());
+        printEventosDelProceso(p);
     }
 }
